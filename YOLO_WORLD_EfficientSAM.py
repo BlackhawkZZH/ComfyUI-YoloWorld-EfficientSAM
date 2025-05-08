@@ -125,7 +125,8 @@ class Yoloworld_ESAM_Zho:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "MASK", )
+    RETURN_TYPES = ("IMAGE", "MASK", "STRING")
+    RETURN_NAMES = ("image", "mask", "detection")
     FUNCTION = "yoloworld_esam_image"
     CATEGORY = "🔎YOLOWORLD_ESAM"
                        
@@ -133,6 +134,7 @@ class Yoloworld_ESAM_Zho:
         categories = process_categories(categories)
         processed_images = []
         processed_masks = []
+        detection_info_all = []
         for img in image:
             img = np.clip(255. * img.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)          
             YOLO_WORLD_MODEL = yolo_world_model
@@ -143,6 +145,13 @@ class Yoloworld_ESAM_Zho:
                 class_agnostic=with_class_agnostic_nms,
                 threshold=iou_threshold
             )
+            # Build formatted detection info
+            for i, det in enumerate(detections.xyxy):
+                cls_idx = detections.class_id[i]
+                label = categories[cls_idx] if cls_idx < len(categories) else f"class_{cls_idx}"
+                box = [round(x, 2) for x in det.tolist()]
+                confidence = round(float(detections.confidence[i]), 2)
+                detection_info_all.append(f"{label} ({confidence}) at {box}")
 
             combined_mask = None
             if with_segmentation:
@@ -195,7 +204,7 @@ class Yoloworld_ESAM_Zho:
         else:
             new_masks = torch.empty(0)
 
-        return new_ims, new_masks
+        return new_ims, new_masks, "\n".join(detection_info_all)
 
 
 NODE_CLASS_MAPPINGS = {
